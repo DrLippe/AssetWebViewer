@@ -13,6 +13,7 @@
     <script src="items.js"></script>
 
     <link rel="stylesheet" href="style.css">
+    <link rel="shortcut icon" href="AssetViewer/AssetViewer/Resources/AssetViewer.ico" type="image/x-icon">
 </head>
 <body>
     <main>
@@ -80,9 +81,10 @@
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr;">
+            <!-- Item List -->
             <div class="groupbox itemList">
                 <ul style="list-style-type: none; padding: 0; margin: 2px;" data-bind="foreach: items().sort(sortByLocalizedText)">
-                    <li style="display: flex; justify-content: space-between;" data-bind="attr: { itemId: id }">
+                    <li style="display: flex; justify-content: space-between;" data-bind="attr: { itemId: id }, visible: isFiltered($data)">
                         <img style="width: 24px; height: 24px;" data-bind="attr: { src: 'AssetViewer/AssetViewer/Resources/' + text.icon }">
                         <div data-bind="text: localize(id)?.text ?? name"></div>
                         <div data-bind="text: id"></div>
@@ -90,6 +92,7 @@
                 </ul>
             </div>
 
+            <!-- Item Card -->
             <div class="groupbox itemview"
             data-bind="with: selectedItem, style: { borderColor: 'rgba(255, 85, 70, 0.157)', backgroundImage: 'linear-gradient(' + rarityColor(selectedItem().rarityType) + ' 0%, rgb(42, 44, 39) 20%)' }">
                 <div class="itemcard-head">
@@ -106,8 +109,8 @@
                         <div style="font-weight: bold; color: #f7c743" data-bind="text: localize(allocation.text.id)?.text"></div>
                     </div>
                     
-                    <div class="itemcard-information" data-bind="visibility: hasTargetInfo">
-                        <div data-bind="text: localize(-1210)?.text + effectTargets.map(t => localize(t.text.id)?.text).distinct().join(', ')"></div>
+                    <div class="itemcard-information" data-bind="visible: hasTargetInfo">
+                        <div data-bind="text: localize(-1210)?.text + effectTargets.map(t => localize(t.text.id)?.text).distinct().joinClose(', ', 'und')"></div>
                     </div>
                     <div class="itemcard-information" style="border: none;" data-bind="foreach: genericUpgrades">
                         <div class="itemcard-upgrade">
@@ -118,7 +121,7 @@
                     </div>
 
                     <!-- Transmute -->
-                    <div class="itemcard-information" data-bind="visibility: craftableItemUpgrades">
+                    <div class="itemcard-information" data-bind="visible: craftableItemUpgrades">
                         <div data-bind="text: localize(113817)?.text" style="margin-bottom: 5px;"></div>
                         <div class="itemcard-upgrade" data-bind="foreach: craftableItemUpgrades">
                             <img data-bind="attr: { src: 'AssetViewer/AssetViewer/Resources/' + text.icon }">
@@ -146,15 +149,20 @@
 
     </section>
     <script>
-
         
         function localize(id) {
             return localization.find(l => l.id == id);
         }
 
+        function unlocalize(text) {
+            return localization.filter(l => l.text.includes(text))
+        }
+
         function sortByLocalizedText(a, b) {
-            if (localize(a.text.id)?.text > localize(b.text.id)?.text) return 1;
-            if (localize(a.text.id)?.text < localize(b.text.id)?.text) return -1;
+            let aText = localize(a.text.id)?.text;
+            let bText = localize(b.text.id)?.text;
+            if (aText > bText) return 1;
+            if (aText < bText) return -1;
             return 0;
         }
 
@@ -177,10 +185,59 @@
             return view.items().find(item => item.id == id);
         }
 
+        let once = false;
+
+        function isFiltered(item = undefined) {
+            if (item == undefined)
+                return false;
+                
+            if (!once)
+                console.log(item);
+            once = true;
+
+            let rarity = item.rarity.id == conditions.rarity || conditions.rarity == null;
+            let hosted = item.hosted == conditions.hosted || conditions.hosted == null;
+            let property = item.property == conditions.property || conditions.property == null;
+            let target = item.target == conditions.target || conditions.target == null;
+            let name = item.name == conditions.name || conditions.name == null;
+            let isAvailable = item.isAvailable == conditions.isAvailable || conditions.isAvailable == null;
+
+            return rarity && hosted && property && target && name && isAvailable && item.itemType == 'Item';
+            
+            return true;
+        }
+
         // Aesop 639
         // Fjordbuster 822
 
-        const allItems = items;
+        const allItems = items.map(item => {
+            // correct allocation icons
+            if (item.allocation) {
+                switch (item.allocation.text.id) {
+                    case '2346':
+                        item.allocation.text.icon = "data/ui/2kimages/main/3dicons/icon_guildhouse.png"
+                        break;
+                    case '4065':
+                        item.allocation.text.icon = "data/ui/2kimages/main/3dicons/icon_harbour_kontor.png"
+                        break;
+                    case '2347':
+                        item.allocation.text.icon = "data/ui/2kimages/main/3dicons/icon_townhall.png";
+                        break;
+                    case '115353':
+                        item.allocation.text.icon = "data/ui/2kimages/main/3dicons/icon_community_lodge.png";
+                }
+            }
+            return item;
+        });
+
+        let conditions = {
+            rarity: 118006,
+            hosted: null,
+            property: null,
+            target: null,
+            name: null,
+            isAvailable: null
+        };
 
         var view = {
             items: ko.observableArray(allItems.filter(x => x.sources != null)),
